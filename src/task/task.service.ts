@@ -26,7 +26,10 @@ export class TaskService {
       },
     });
   }
-
+   async getAllTasks() {
+  // İçine hiçbir filtre (where) yazmıyoruz, bu yüzden veritabanındaki tüm görevleri çeker
+     return this.prisma.task.findMany(); 
+  }
   // 3. GÖREV GÜNCELLEME (Tamamlandı işaretleme veya isim değiştirme)
   async updateTask(userId: number, taskId: number, dto: UpdateTaskDto) {
     const task = await this.prisma.task.findUnique({

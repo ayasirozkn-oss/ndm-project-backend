@@ -15,9 +15,14 @@ export class TaskController {
   }
 
   @Get()
-  getTasks(@Request() req: any) {
-    return this.taskService.getTasks(req.user.sub);
+    getTasks(@Request() req: any) {
+  // Eğer gelen kişinin rolü 'admin' ise, herkesin görevini döndür
+     if (req.user.role === 'admin') {
+        return this.taskService.getAllTasks();
   }
+  // Değilse, sadece kendi görevlerini döndür
+  return this.taskService.getTasks(req.user.sub);
+}
 
   @Patch(':id')
   updateTask(@Request() req: any, @Param('id') id: string, @Body() dto: UpdateTaskDto) {
