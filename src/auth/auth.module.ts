@@ -2,15 +2,21 @@ import { Module } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config'; // Config (Çevre Değişkenleri) paketini dahil ettik
 
 @Module({
-  providers: [AuthService],
-  controllers: [AuthController],
   imports: [
-    JwtModule.register({
-      secret: 'bizim_gizli_anahtarimiz', // Guard'ın aradığı anahtarı buraya verdik!
-      signOptions: { expiresIn: '15m' }, // Token süresini de buraya sabitleyebiliriz
+    // register yerine registerAsync kullanıyoruz ki şifreyi kasadan asenkron olarak çekebilsin
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'), // Şifreyi .env dosyasından çekiyoruz
+        signOptions: { expiresIn: '15m' },
+      }),
     }),
   ],
+  providers: [AuthService],
+  controllers: [AuthController],
 })
 export class AuthModule {}

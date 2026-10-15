@@ -18,17 +18,55 @@ export class TaskService {
     return task;
   }
 
-  // 2. KULLANICININ TÜM GÖREVLERİNİ GETİRME
-  async getTasks(userId: number) {
-    return this.prisma.task.findMany({
-      where: {
-        userId: userId, // Sadece bu ID'ye ait görevleri getirir
+  async getTasks(userId: number, search?: string, page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit; // Kaç veri atlanacak hesapla
+    
+    // Arama kelimesi varsa başlıkta (title) arayacak dinamik bir filtre oluşturuyoruz
+    const whereCondition = {
+      userId: userId,
+      ...(search && { title: { contains: search } }) 
+    };
+
+    // Veriyi ve toplam sayıyı eşzamanlı olarak çekiyoruz
+    const [data, total] = await Promise.all([
+      this.prisma.task.findMany({
+        where: whereCondition,
+        skip: skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' }, // En yeni görevler en üstte gelsin
+      }),
+      this.prisma.task.count({ where: whereCondition }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       },
-    });
+    };
   }
-   async getAllTasks() {
-  // İçine hiçbir filtre (where) yazmıyoruz, bu yüzden veritabanındaki tüm görevleri çeker
-     return this.prisma.task.findMany(); 
+
+  async getAllTasks(search?: string, page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit;
+    
+    const whereCondition = {
+      ...(search && { title: { contains: search } })
+    };
+
+    const [data, total] = await Promise.all([
+      this.prisma.task.findMany({
+        where: whereCondition,
+        skip: skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.task.count({ where: whereCondition }),
+    ]);
+
+    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
   // 3. GÖREV GÜNCELLEME (Tamamlandı işaretleme veya isim değiştirme)
   async updateTask(userId: number, taskId: number, dto: UpdateTaskDto) {
@@ -61,5 +99,23 @@ export class TaskService {
     });
 
     return { message: 'Görev başarıyla silindi' };
+  }
+  async getAdminUserSummary() {
+    // Prisma ile tüm kullanıcıları ve onlara ait görevleri tek seferde (join) çekiyoruz
+    const users = await this.prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        tasks: true, // Prisma'nın sihri: Kullanıcıya ait tüm görevleri de getir
+      },
+    });
+
+    // Patron için okuması kolay, şık bir rapora dönüştürüyoruz
+    return users.map((user) => ({
+      kullaniciId: user.id,
+      email: user.email,
+      toplamGorevSayisi: user.tasks.length,
+      gorevler: user.tasks,
+    }));
   }
 }
